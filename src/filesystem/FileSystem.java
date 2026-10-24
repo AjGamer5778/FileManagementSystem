@@ -2,11 +2,15 @@ package filesystem;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.FileVisitResult;
 import java.nio.file.SimpleFileVisitor;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 
 import models.*;
@@ -17,9 +21,7 @@ public class FileSystem implements FileManagerService{
     private final ArrayList<FileSystemItem> clipboard = new ArrayList<>();
     private ClipboardMode clipboardMode;
 
-    
-
-    @Override 
+    @Override
     public FolderItem openWorkspace(Path rootFolder) throws IOException{
         if(!Files.isDirectory(rootFolder)){
             throw new IOException("Not a valid Folder: " + rootFolder);
@@ -110,58 +112,59 @@ public class FileSystem implements FileManagerService{
         return results;
     }
 
-    @Override 
+    @Override
     public FileSystemItem duplicate(FileSystemItem item) throws IOException{
-        Path parent = item.getPath().toAbsolutePath().getParent();
-        if(parent == null){
-            throw new IOException("Cannot Duplicate, Item has no parent Folder!");
+        Path parent= item.getPath().getParent();
+        if (parent==null){
+            throw new IOException("Cannot duplicate an item without a parent folder.");
         }
-        
         return item.copyTo(parent);
     }
 
-    @Override 
+
+    @Override
     public ArrayList<FileSystemItem> search(String query) throws IOException{
-        if(workspace == null){
-            throw new IllegalStateException("No Workspace is Open");
+        if (workspace==null){
+            throw new IllegalStateException("Workspace is not opened. Please open a workspace first.");
+        }
+
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Search query must not be empty.");
         }
 
         ArrayList<FileSystemItem> results = new ArrayList<>();
-        if(query == null || query.isBlank()){
-            return results;
+        String searchQuery = query.toLowerCase(Locale.ROOT);
+
+        Path workspacePath = workspace.getPath();
+
+        try (Stream<Path> pathStream =Files.walk(workspacePath)) {
+
+            Iterator<Path> iterator = pathStream.iterator();
+
+            while (iterator.hasNext()){
+                Path currentPath=iterator.next();
+
+                Path fileNamePath=currentPath.getFileName();
+
+                String nameText=fileNamePath.toString();
+
+                String nameTextLower=nameText.toLowerCase(Locale.ROOT);
+
+                if (nameTextLower.contains(searchQuery)) {
+                    if (Files.isDirectory(currentPath, LinkOption.NOFOLLOW_LINKS)) {
+                        FolderItem folderResult=new FolderItem(currentPath);
+
+                        results.add(folderResult);
+                    } else {
+                        FileItem fileResult=new FileItem(currentPath);
+
+                        results.add(fileResult);
+                    }
+                }
+            }
         }
 
-        String needle = query.trim().toLowerCase();
-        Path root = workspace.getPath();
-
-        Files.walkFileTree(root, new SimpleFileVisitor<Path>(){
-            @Override 
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attr){
-                if(!dir.equals(root) && matches(dir, needle)){
-                    results.add(new FolderItem(dir));
-                }
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override 
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attr){
-                if(matches(file, needle)){
-                    results.add(new FileItem(file));
-                }
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override 
-            public FileVisitResult visitFileFailed(Path file, IOException e){
-                return FileVisitResult.CONTINUE;
-            }
-        });
-
         return results;
-    }
 
-    private static boolean matches(Path p, String needle){
-        Path name = p.getFileName();
-        return name != null && name.toString().toLowerCase().contains(needle);
     }
 }

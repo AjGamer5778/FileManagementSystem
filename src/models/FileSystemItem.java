@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
 
+
 public abstract class FileSystemItem{
     protected Path path;
 
@@ -60,6 +61,8 @@ public abstract class FileSystemItem{
 
         return target;
     }
+
+
 
 
     public abstract FileSystemItem copyTo(Path targetFolder) throws IOException;

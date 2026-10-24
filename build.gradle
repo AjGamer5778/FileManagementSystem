@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+application {
+    mainClass = 'app.MainApp'
+}
+
+// FIX 1: Added repository so Gradle knows where to download JavaFX
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+    }
+}
+
+// FIX 2: Downgraded version to match your working Java 21 environment
+javafx {
+    version = '21.0.1'
+    modules = ['javafx.controls']
+}
